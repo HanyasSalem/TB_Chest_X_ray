@@ -2,8 +2,8 @@
 __pycache__/
 *.py[codz]
 *$py.class
-data\
-notebook\
+data/
+notebook/
 # C extensions
 *.so
 

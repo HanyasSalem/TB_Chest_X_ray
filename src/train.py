@@ -11,19 +11,35 @@ import matplotlib.pyplot as plt
 from model import TBCNN
 from dataset import load_tb_data
 
+# parsing dataset path
+import argparse 
+
 dataset_root = r"D:\TB_project\TB_radiology_task\TB_Chest_X_ray\data"
 print("Dataset root path:", dataset_root)
+
+def get_args():
+    parser = argparse.ArgumentParser(description="Train TBCNN on TB Chest X-ray dataset")
+    parser.add_argument("--dataset_root", type=str, default=dataset_root, help="Path to the dataset root directory")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size for training and validation")
+    parser.add_argument("--train_split_ratio", type=float, default=0.8, help="Ratio of data to use for training")
+    parser.add_argument("--num_epochs", type=int, default=3, help="Number of training epochs")
+    parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate for the optimizer")
+    parser.add_argument("--checkpoint_path", type=str, default=r"D:\TB_project\TB_radiology_task\TB_Chest_X_ray\Checkpoints", help="Directory to save model checkpoints")
+
+    args = parser.parse_args()
+    return args
 
 def main():
 
     print("Starting data loading process...")
-
+    args = get_args()
     train_loader, val_loader, train_dataset, val_dataset, full_data = load_tb_data(
         dataset_root_path=dataset_root,
-        batch_size=32,
-        train_split_ratio=0.8
+        batch_size=args.batch_size,
+        train_split_ratio=args.train_split_ratio
     )
-
+    best_val_acc = 0.0
+    checkpoint_path = args.checkpoint_path
     # quick sanity check
     for images, labels in train_loader:
         print("Batch images shape:", images.shape)
@@ -38,9 +54,9 @@ def main():
     model = TBCNN().to(device)
 
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
 
-    num_epochs = 10
+    num_epochs = args.num_epochs
 
     train_losses, train_accs = [], []
     val_losses, val_accs = [], []
@@ -115,9 +131,16 @@ def main():
             f"Train loss: {train_loss:.4f} | Train Acc: {train_acc:.2f}% | "
             f"Val loss: {val_loss:.4f} | Val Acc: {val_acc:.2f}%"
         )
-# Save final model after all epochs
-torch.save(model.state_dict(), "tb_model.pth")
-print("Model saved successfully!")
+
+        # Save best model based on validation accuracy
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            torch.save(model.state_dict(), f"{checkpoint_path}/best_model.pth")
+            print(f"New best model saved with validation accuracy: {best_val_acc:.2f}%")
+
+    # Save final model after all epochs
+    torch.save(model.state_dict(), f"{checkpoint_path}/final_model.pth")
+    print("Final model saved successfully!")
 
 
 if __name__ == "__main__":
